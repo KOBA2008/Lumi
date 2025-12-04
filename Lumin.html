@@ -1,0 +1,356 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Check, X, RefreshCw, Settings, BarChart3, Bell } from 'lucide-react';
+
+const LuminaDashboard = () => {
+  const [activeTab, setActiveTab] = useState('publications');
+  const [publications, setPublications] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState({
+    collected: 0,
+    approved: 0,
+    rejected: 0,
+    pending: 0
+  });
+
+  // Charger les données depuis le stockage persistant
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const pubsResult = await window.storage.get('publications');
+      const sourcesResult = await window.storage.get('sources');
+      const statsResult = await window.storage.get('stats');
+
+      if (pubsResult) setPublications(JSON.parse(pubsResult.value));
+      if (sourcesResult) setSources(JSON.parse(sourcesResult.value));
+      if (statsResult) setStats(JSON.parse(statsResult.value));
+    } catch (error) {
+      // Initialiser avec des données de démonstration
+      const demoPublications = [
+        {
+          id: '1',
+          type: 'hackathon',
+          title: 'AI Innovation Challenge 2025',
+          description: 'Hackathon international sur l\'IA organisé par Google Developer Group.',
+          deadline: '2025-03-02',
+          organizer: 'Google Developer Group',
+          source: 'https://facebook.com/GDGYaounde',
+          application_link: 'https://gdg.com/apply',
+          published_at: '2025-02-20T14:32:00',
+          status: 'en attente'
+        },
+        {
+          id: '2',
+          type: 'bourse',
+          title: 'Bourse Mastercard Foundation 2025',
+          description: 'Programme de bourses pour étudiants africains en technologie.',
+          deadline: '2025-04-15',
+          organizer: 'Mastercard Foundation',
+          source: 'https://linkedin.com/company/mastercard',
+          application_link: 'https://mastercard.org/apply',
+          published_at: '2025-02-19T10:15:00',
+          status: 'en attente'
+        }
+      ];
+
+      const demoSources = [
+        { id: '1', name: 'GDG Yaoundé', platform: 'Facebook', url: 'https://facebook.com/GDGYaounde', active: true },
+        { id: '2', name: 'Mastercard Foundation', platform: 'LinkedIn', url: 'https://linkedin.com/company/mastercard', active: true },
+        { id: '3', name: 'AfricaTech RSS', platform: 'RSS', url: 'https://africatech.com/feed', active: true }
+      ];
+
+      setPublications(demoPublications);
+      setSources(demoSources);
+      await window.storage.set('publications', JSON.stringify(demoPublications));
+      await window.storage.set('sources', JSON.stringify(demoSources));
+      updateStats(demoPublications);
+    }
+  };
+
+  const updateStats = async (pubs) => {
+    const newStats = {
+      collected: pubs.length,
+      approved: pubs.filter(p => p.status === 'publié').length,
+      rejected: pubs.filter(p => p.status === 'rejeté').length,
+      pending: pubs.filter(p => p.status === 'en attente').length
+    };
+    setStats(newStats);
+    await window.storage.set('stats', JSON.stringify(newStats));
+  };
+
+  const handleApprove = async (id) => {
+    const updated = publications.map(p =>
+      p.id === id ? { ...p, status: 'publié' } : p
+    );
+    setPublications(updated);
+    await window.storage.set('publications', JSON.stringify(updated));
+    updateStats(updated);
+  };
+
+  const handleReject = async (id) => {
+    const updated = publications.map(p =>
+      p.id === id ? { ...p, status: 'rejeté' } : p
+    );
+    setPublications(updated);
+    await window.storage.set('publications', JSON.stringify(updated));
+    updateStats(updated);
+  };
+
+  const addSource = async () => {
+    const newSource = {
+      id: Date.now().toString(),
+      name: 'Nouvelle source',
+      platform: 'Facebook',
+      url: '',
+      active: true
+    };
+    const updated = [...sources, newSource];
+    setSources(updated);
+    await window.storage.set('sources', JSON.stringify(updated));
+  };
+
+  const toggleSource = async (id) => {
+    const updated = sources.map(s =>
+      s.id === id ? { ...s, active: !s.active } : s
+    );
+    setSources(updated);
+    await window.storage.set('sources', JSON.stringify(updated));
+  };
+
+  const filteredPublications = publications.filter(p => {
+    const matchesFilter = filter === 'all' || p.type === filter || p.status === filter;
+    const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         p.organizer.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const StatCard = ({ title, value, color }) => (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="text-sm text-gray-600 mb-1">{title}</div>
+      <div className={`text-3xl font-bold ${color}`}>{value}</div>
+    </div>
+  );
+
+  const PublicationCard = ({ pub }) => {
+    const typeColors = {
+      hackathon: 'bg-purple-100 text-purple-800',
+      bourse: 'bg-green-100 text-green-800',
+      concours: 'bg-blue-100 text-blue-800',
+      formation: 'bg-orange-100 text-orange-800'
+    };
+
+    const statusColors = {
+      'en attente': 'bg-yellow-100 text-yellow-800',
+      'publié': 'bg-green-100 text-green-800',
+      'rejeté': 'bg-red-100 text-red-800'
+    };
+
+    return (
+      <div className="bg-white rounded-lg shadow p-6 mb-4">
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex-1">
+            <div className="flex gap-2 mb-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${typeColors[pub.type]}`}>
+                {pub.type}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[pub.status]}`}>
+                {pub.status}
+              </span>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">{pub.title}</h3>
+            <p className="text-gray-600 mb-3">{pub.description}</p>
+            <div className="text-sm text-gray-500 space-y-1">
+              <div>📅 Deadline: {new Date(pub.deadline).toLocaleDateString('fr-FR')}</div>
+              <div>🏢 Organisateur: {pub.organizer}</div>
+              <div>🔗 <a href={pub.source} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Source officielle</a></div>
+              <div>📝 <a href={pub.application_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Lien de candidature</a></div>
+            </div>
+          </div>
+        </div>
+        
+        {pub.status === 'en attente' && (
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => handleApprove(pub.id)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <Check size={18} />
+              Approuver
+            </button>
+            <button
+              onClick={() => handleReject(pub.id)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              <X size={18} />
+              Rejeter
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold mb-2">✨ Lumina Dashboard</h1>
+          <p className="text-purple-100">Plateforme de gestion des opportunités étudiantes</p>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <StatCard title="Total collecté" value={stats.collected} color="text-blue-600" />
+          <StatCard title="En attente" value={stats.pending} color="text-yellow-600" />
+          <StatCard title="Approuvés" value={stats.approved} color="text-green-600" />
+          <StatCard title="Rejetés" value={stats.rejected} color="text-red-600" />
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('publications')}
+              className={`px-6 py-3 font-medium ${activeTab === 'publications' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+            >
+              📰 Publications
+            </button>
+            <button
+              onClick={() => setActiveTab('sources')}
+              className={`px-6 py-3 font-medium ${activeTab === 'sources' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+            >
+              🌐 Sources
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-6 py-3 font-medium ${activeTab === 'settings' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+            >
+              ⚙️ Paramètres
+            </button>
+          </div>
+
+          {/* Publications Tab */}
+          {activeTab === 'publications' && (
+            <div className="p-6">
+              <div className="flex gap-4 mb-6">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    placeholder="Rechercher..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                  />
+                </div>
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                >
+                  <option value="all">Tous</option>
+                  <option value="hackathon">Hackathons</option>
+                  <option value="bourse">Bourses</option>
+                  <option value="concours">Concours</option>
+                  <option value="formation">Formations</option>
+                  <option value="en attente">En attente</option>
+                  <option value="publié">Publiés</option>
+                  <option value="rejeté">Rejetés</option>
+                </select>
+              </div>
+
+              {filteredPublications.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  Aucune publication trouvée
+                </div>
+              ) : (
+                filteredPublications.map(pub => (
+                  <PublicationCard key={pub.id} pub={pub} />
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Sources Tab */}
+          {activeTab === 'sources' && (
+            <div className="p-6">
+              <button
+                onClick={addSource}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 mb-4"
+              >
+                <Plus size={18} />
+                Ajouter une source
+              </button>
+
+              <div className="space-y-3">
+                {sources.map(source => (
+                  <div key={source.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">{source.name}</div>
+                      <div className="text-sm text-gray-600">{source.platform} • {source.url}</div>
+                    </div>
+                    <button
+                      onClick={() => toggleSource(source.id)}
+                      className={`px-4 py-2 rounded-lg font-medium ${
+                        source.active
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {source.active ? 'Actif' : 'Inactif'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="p-6 space-y-6">
+              <div>
+                <h3 className="text-lg font-bold mb-3">⚡ Fréquence de vérification</h3>
+                <select className="w-full px-4 py-2 border rounded-lg">
+                  <option>Toutes les 15 minutes</option>
+                  <option>Toutes les 30 minutes</option>
+                  <option>Toutes les heures</option>
+                  <option>Toutes les 2 heures</option>
+                </select>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-3">🔑 Mots-clés de filtrage</h3>
+                <textarea
+                  className="w-full px-4 py-2 border rounded-lg h-32"
+                  placeholder="hackathon, concours, bourse, formation, bootcamp, stage..."
+                  defaultValue="hackathon, concours, bourse, formation, bootcamp, stage"
+                />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-3">📧 Notifications</h3>
+                <label className="flex items-center gap-3">
+                  <input type="checkbox" className="w-5 h-5" defaultChecked />
+                  <span>Notifier lors de nouvelles publications</span>
+                </label>
+              </div>
+
+              <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium">
+                Enregistrer les paramètres
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LuminaDashboard;
